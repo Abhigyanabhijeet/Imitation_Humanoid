@@ -6,24 +6,21 @@ import sys
 import time
 
 
-##ssc32 = serial.Serial('COM4', 115200, timeout=1)
+#ssc32 = serial.Serial('COM9', 115200, timeout=1)
 time.sleep(2)
 palm = cv2.CascadeClassifier('palm.xml')
 fist = cv2.CascadeClassifier('fist.xml')
 up_cascade = cv2.CascadeClassifier('haarcascade_mcs_upperbody.xml')
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+##face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 
 lk_params = dict( winSize  = (15,15),maxLevel = 2,criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-##fourcc = cv2.VideoWriter_fourcc(*'XVID')
-##out = cv2.VideoWriter('output.avi',fourcc, 20.0, (640,480))
+cap=cv2.VideoCapture(1)   
 
-cap=cv2.VideoCapture(0)   
+def arduino_map(x, in_min, in_max, out_min, out_max):
+        return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
 
-##def arduino_map(x, in_min, in_max, out_min, out_max):
-##        return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
-while(1):
-    
+def initialize():
     y=0
     h=0
     pcx=0
@@ -43,6 +40,10 @@ while(1):
     oeby=0
     refx=0
     refy=0
+    
+while(1):
+    
+    initialize()
     ret, old_frame = cap.read()
     img=old_frame
     old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
@@ -50,36 +51,15 @@ while(1):
 
     up =up_cascade.detectMultiScale(old_gray ,1.3,5)
     for (x,y,w,h) in up:
-        #cv2.rectangle(img ,(x,y),(x+w,y+h),(255,0,0),2)
         lsx=x+w//6
         sy=y+3*h//4
         refx=lsx
         refy=y+3*h//2
-##        rsx=x+5*w//6
         cv2.circle(img,(lsx,sy), 3, (0,0,255), -1)
         cv2.circle(img,(rsx,sy), 3, (0,0,255), -1)
-####        roi_gray=gray[y:y+h, x:x+w]
-####        roi_color=img[y:y+h, x:x+w]
-    faces =face_cascade.detectMultiScale(old_gray ,1.3,5)
-    for (fx,fy,fw,fh) in faces:
-            #cv2.rectangle(img ,(fx,fy),(fx+fw,fy+fh),(255,0,0),2)
-            nfx=fx+fw//2
-            nfy=fy+fh//2
-            cv2.circle(img,(nfx,nfy), 3, (0,0,255), -1)
-            nx=(fx+fw//2)
-            ny=(y+2*h//3)
-            cv2.circle(img,(nx,ny), 3, (0,0,255), -1) 
-    
-    palmnew =palm.detectMultiScale(old_gray ,1.3,5)
+
     mask = np.zeros_like(old_frame)
-    color = np.random.randint(0,255,(100,3))
-    for (x,y,w,h) in palmnew:
-        cv2.rectangle(img ,(x,y),(x+w,y+h),(255,0,0),2)
-        pcx= x+w//2
-        pcy= y+h//2
-        #cv2.circle(img,(ebx,eby), 3, (0,0,255), -1)
-        ebx=pcx
-        eby=y+7*h//2
+
     
     
     fistnew =fist.detectMultiScale(old_gray ,1.3,5)
@@ -87,22 +67,17 @@ while(1):
         cv2.rectangle(img ,(x,y),(x+w,y+h),(255,0,0),2)
         fcx= x+w//2
         fcy= y+h//2
-        #cv2.circle(img,(oebx,oeby), 3, (0,0,255), -1)
         oebx =fcx
         oeby =y+7*h//2
           
 
-    #p0 = np.array([[[pcx,pcy]],[[fcx,fcy]],[[lsx,sy]],[[rsx,sy]],[[nfx,nfy]],[[nx,ny]]], np.float32)
     p0 = np.array([[[fcx,fcy]],[[lsx,sy]],[[oebx,oeby]],[[refx,refy]]], np.float32)    
 
     if(p0[0][0][0]!=0 and lsx!=0 and oebx!=0 and refx!=0) :
- #   if(fcx!=0) :                  
-
                while(1):
                 ret,frame = cap.read()
                 frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
-        # calculate optical flow
                 p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
                 px=p1[0][0][0]
                 py=p1[0][0][1]
@@ -118,12 +93,6 @@ while(1):
                 cv2.line(frame,(sx,sy),(fx,fy),(120,110,225),5)
                 cv2.line(frame,(px,py),(ex,ey),(120,110,225),5)
 
-                #px=int(px)
-                #py=int(py)
-                #ex=int(ex)
-                #ey=int(ey)
-                #sx=int(sx)
-                #sy=int(sy)
 
                 b=math.sqrt(math.pow((px - ex),2) + math.pow((py - ey),2))
                 a=math.sqrt(math.pow((px - sx),2) + math.pow((py - sy),2))
@@ -134,18 +103,6 @@ while(1):
 
                 angle = int(math.acos((math.pow(b,2)+math.pow(c,2)-math.pow(a,2))/(2*b*c))*180/math.pi)
                 angle2 = int(math.acos((math.pow(b1,2)+math.pow(a1,2)-math.pow(c1,2))/(2*a1*b1))*180/math.pi)
-##                anglea=arduino_map(angle, 0, 180, 500, 2500)
-##                angle2a=arduino_map(angle2, 0, 180, 500, 2500)
-
-                
-                print( angle)
-                print(str(angle)+"a")
-                data= str(angle)+"a"
-                bytes = str.encode(data)
-                ssc32.write(bytes)
-              # time.sleep(.5)
-                print (ssc32.readline())
-                ssc32.flush()
 
                   
                 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -163,7 +120,7 @@ while(1):
                 for i,(new,old) in enumerate(zip(good_new,good_old)):
                     a,b = new.ravel()
                     c,d = old.ravel()
-                #mask = cv2.line(mask, (a,b),(c,d), color[i].tolist(), 2)
+
                     frame = cv2.circle(frame,(a,b),5,(0,0,255),-1)
 
                 img = cv2.add(frame,mask)
@@ -178,8 +135,6 @@ while(1):
         # Now update the previous frame and previous points
                 old_gray = frame_gray.copy()
                 p0 = good_new.reshape(-1,1,2)
-                out.write(img)
-
     p0[0][0][0]=0   
       
     
